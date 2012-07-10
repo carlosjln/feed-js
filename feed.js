@@ -1,49 +1,36 @@
-
 (function(w){
 	w.Feed = Feed;
 	
-	function Feed( template, source, opt_source_type ){
-		var source_type = type_of( source );
+	var Matchers = [];
+	
+	function Feed( template, data, opt_source_type ){
+		var source_type = type_of( data );
 		var is_array = source_type == 'array';
 		
 		var is_json = opt_source_type == 'json' || source_type == 'object';
-		var is_json_array = is_json || ( is_array && type_of(source[0]) == 'object' && type_of(source[1]) == 'object');
+		var is_json_array = is_json || ( is_array && type_of(data[0]) == 'object' && type_of(data[1]) == 'object');
+		var is_list = is_array && type_of( data[0] ) != 'object';
 		
-		var array = is_array? source : [source];
-		var i = array.length;
+		var array = is_array? data : [data];
+		var array_len = array.length;
 		
 		var output = [];
-		var element;
 		
-		var regexp = /{{([a-z\-_]+[0-9]*)}}/ig;
+		var matchers = Matchers;
+		var matchers_len = matchers.length;
+		var matcher;
 		
-		var header = array[0];
-		
-		if( is_json || is_json_array ){
-			
-			while(i--){
-				element = array[ i ];
+		if( is_list ) {
+			output = match_list( template, data );
+		} else {
+			for(var i = 0; i < array_len; i++ ) {
+				var temp = template;
 				
-				output[ i ] = template.replace( regexp,
-					function(holder, name, index, string){
-						return element[name] || '{{}}';
-					}
-				);
-			}
-		
-		}else{
-			
-			if(i){
-				i--;
-				while(i--){
-					element = array[ i+1 ];
-					
-					output[ i ] = template.replace( regexp,
-						function(holder, name, index, string){
-							return ( element[ header[name] ] + "" ) || '';
-						}
-					);
+				for( var j = 0; j < matchers_len; j++ ){
+					temp = matchers[j]( temp, array[i] );
 				}
+				
+				output[ output.length ] = temp;
 			}
 		}
 		
@@ -80,7 +67,7 @@
 			output[ i ] = output[ i ].replace( clean_a, "" ).replace( clean_b, "" ).replace( clean_c, "$1" );
 		}
 		
-		return is_array? output : output[0];;
+		return is_array? output : output[0];
 	}
 	
 	// This method would make the Feed function available at string level prototype
@@ -90,5 +77,45 @@
 			return Feed(template, source, opt_source_type );
 		};
 	};
+	
+	Feed.add_matcher = function( matcher ) {
+		Matchers[ Matchers.length ] = matcher;
+	};
+	
+	Feed.add_matcher( match_value );
+	Feed.add_matcher( match_for_each );
+	
+	function match_value( template, data ){
+		var pattern = /{{([a-z\-_]+[0-9]*)}}/ig;
+		
+		var replacer = function(match, name, index, string){
+			return data[name] || '{{}}';
+		};
+		
+		return template.replace( pattern, replacer );
+	}
+	
+	function match_for_each( template, data ) {
+		var pattern = /{{for_each ([a-z\-_]+[0-9]*)}}([^]*?)({{\/each}})/ig;
+		
+		var replacer = function(match, item, body, index, string){
+			return Feed( body, data[item] );
+		};
+		
+		return template.replace( pattern, replacer );
+	}
+
+	function match_list( template, list ){
+		var pattern = /{{#}}/ig;
+		var i = list.length;
+		var c = 0;
+		var output = [];
+
+		while( i-- ) {
+			output[ output.length ] = template.replace( pattern, list[c++] );
+		}
+		
+		return output.join('');
+	}	
 	
 })(window);
