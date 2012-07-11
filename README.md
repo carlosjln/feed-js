@@ -41,5 +41,5 @@ var data = [ {name:'foo'}, {name:'var'} ];
 
 Feed( template, data, 'json' );
 
-// ['Hello foo', 'Hello var']
+// 'Hello foo Hello var '
 ```
