@@ -12,9 +12,11 @@ None :)
 Utility methods
 --------------------------------------
 
-If you want to use Feed JS at string level prototype then all you need to do is call the following method (once) at the begining of your application.
+Calling Feed.set_prototype() at the begining of your application will allow you to use Feed JS as a string method.
 ```javascript
-Feed.set_prototype();
+'Hello {{name}}'.feed( { name:'World' } );
+
+// 'Hello World'
 ```
 
 Examples
@@ -24,9 +26,11 @@ Feeding a template with a simple JSON.
 
 ```javascript
 var template = 'Hello {{name}}';
-var data = { name: 'World' };
+var data = { name:'World' };
 
-Feed( template, data );    // 'Hello World'
+Feed( template, data );
+
+// 'Hello World'
 ```
 
 Feeding a template with a JSON array.
@@ -35,7 +39,9 @@ Feeding a template with a JSON array.
 var template = 'Hello {{name}}';
 var data = [ {name:'foo'}, {name:'var'} ];
 
-Feed( template, data, 'json' );	// ['Hello foo', 'Hello var']
+Feed( template, data, 'json' );
+
+// ['Hello foo', 'Hello var']
 ```
 
 Feeding a template with a JSON header array. In this case the first element of the array is a JSON object and its properties contain the index at which their values are on the subsequet rows.

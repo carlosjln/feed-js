@@ -3,38 +3,31 @@
 	
 	var Matchers = [];
 	
-	function Feed( template, data, opt_source_type ){
-		var source_type = type_of( data );
-		var is_array = source_type == 'array';
+	function Feed( template, data, opt_data_type ){
+		var data_type = type_of( data );
 		
-		var is_json = opt_source_type == 'json' || source_type == 'object';
-		var is_json_array = is_json || ( is_array && type_of(data[0]) == 'object' && type_of(data[1]) == 'object');
-		var is_list = is_array && type_of( data[0] ) != 'object';
+		var is_array = data_type == 'array';
+		var is_json = opt_data_type == 'json' || data_type == 'object';
 		
-		var array = is_array? data : [data];
-		var array_len = array.length;
+		var is_json_array = is_json || ( is_array && type_of( data[0])  == 'object' && type_of( data[1] ) == 'object');
 		
-		var output = [];
+		if( is_json || is_json_array ) {
+			data_type = 'json';
+			
+		}else if( opt_data_type == 'list' || (is_array && type_of( data[0] ) != 'object') ) {
+			data_type = 'list';
+		}
 		
 		var matchers = Matchers;
 		var matchers_len = matchers.length;
-		var matcher;
 		
-		if( is_list ) {
-			output = match_list( template, data );
-		} else {
-			for(var i = 0; i < array_len; i++ ) {
-				var temp = template;
-				
-				for( var j = 0; j < matchers_len; j++ ){
-					temp = matchers[j]( temp, array[i] );
-				}
-				
-				output[ output.length ] = temp;
-			}
+		var temp = template;
+		
+		for( var j = 0; j < matchers_len; j++ ){
+			temp = matchers[j]( temp, data, data_type );
 		}
 		
-		return clear( output );
+		return clear( temp );
 	}
 	
 	// Simple object type detector
@@ -54,27 +47,72 @@
 	}
 	
 	// Removes optional brackets and un-replaced place holders
-	function clear( data ) {
+	function clear( template ) {
 		var clean_a = /\[\[(.+){{}}(.+)\]\]/ig;
 		var clean_b = /{{}}/ig;
 		var clean_c = /\[\[(.+)\]\]/ig;
 		
-		var is_array = data instanceof Array;
-		var output = is_array ? data : [data];	
-		var i = output.length;
-		
-		while(i--){
-			output[ i ] = output[ i ].replace( clean_a, "" ).replace( clean_b, "" ).replace( clean_c, "$1" );
-		}
-		
-		return is_array? output : output[0];
+		return template.replace( clean_a, "" ).replace( clean_b, "" ).replace( clean_c, "$1" );
 	}
 	
+	// Matchers
+	function match_value( template, data, data_type ){
+		if( data_type != 'json' ) return template;
+		
+		var pattern = /{{([a-z\-_]+[0-9]*)}}/ig;
+		
+		var array = data instanceof Array? data : [data];
+		var length = array.length;
+		var i = 0;
+		
+		var obj;
+		var output = [];
+		
+		while( length-- ){
+			obj = array[ i++ ];
+			
+			output[ output.length ] = template.replace( pattern,
+				function(holder, name){
+					return obj[ name ] || '';
+				}
+			);
+		}
+		
+		return output.join('');
+	}
+	
+	function match_for_each( template, data, data_type ){
+		var pattern = /{{for_each ([a-z\-_]+[0-9]*)}}([^]*?)({{\/each}})/ig;
+
+		if( pattern.test( template ) == false ) return  template;
+		
+		var replacer = function(match, item, body, index, string){
+			return Feed( body, data[item] );
+		};
+		
+		return template.replace( pattern, replacer );
+	}
+
+	function match_list( template, data, data_type ){
+		if( data_type != 'list' ) return  template;
+		
+		var pattern = /{{#}}/ig;
+		var i = data.length;
+		var c = 0;
+		var output = [];
+
+		while( i-- ) {
+			output[ output.length ] = template.replace( pattern, data[c++] );
+		}
+		
+		return output.join('');
+	}	
+
 	// This method would make the Feed function available at string level prototype
 	Feed.set_prototype = function() {
-		String.prototype.feed = function( source, opt_source_type ) {
+		String.prototype.feed = function( data, opt_data_type ) {
 			var template = this;
-			return Feed(template, source, opt_source_type );
+			return Feed(template, data, opt_data_type );
 		};
 	};
 	
@@ -84,38 +122,6 @@
 	
 	Feed.add_matcher( match_value );
 	Feed.add_matcher( match_for_each );
-	
-	function match_value( template, data ){
-		var pattern = /{{([a-z\-_]+[0-9]*)}}/ig;
-		
-		var replacer = function(match, name, index, string){
-			return data[name] || '{{}}';
-		};
-		
-		return template.replace( pattern, replacer );
-	}
-	
-	function match_for_each( template, data ) {
-		var pattern = /{{for_each ([a-z\-_]+[0-9]*)}}([^]*?)({{\/each}})/ig;
-		
-		var replacer = function(match, item, body, index, string){
-			return Feed( body, data[item] );
-		};
-		
-		return template.replace( pattern, replacer );
-	}
-
-	function match_list( template, list ){
-		var pattern = /{{#}}/ig;
-		var i = list.length;
-		var c = 0;
-		var output = [];
-
-		while( i-- ) {
-			output[ output.length ] = template.replace( pattern, list[c++] );
-		}
-		
-		return output.join('');
-	}	
+	Feed.add_matcher( match_list );
 	
 })(window);
